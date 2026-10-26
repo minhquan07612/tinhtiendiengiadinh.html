@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Công cụ tính tiền điện gia đình thông minh</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-lg py-6 px-4 mb-8">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold flex items-center gap-3">
+                    <i class="fa-solid fa-bolt text-yellow-300"></i> Công Cụ Tính Tiền Điện Gia Đình
+                </h1>
+                <p class="text-emerald-100 text-sm mt-1">Quản lý thiết bị, tính biểu giá bậc thang & thuế VAT chính xác</p>
+            </div>
+            <div class="mt-4 md:mt-0 flex gap-2">
+                <button onclick="resetData()" class="bg-emerald-800 hover:bg-emerald-900 text-emerald-100 text-sm font-medium px-4 py-2 rounded-xl transition shadow flex items-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i> Đặt lại mặc định
+                </button>
+                <button onclick="exportData()" class="bg-white text-emerald-700 hover:bg-emerald-50 text-sm font-semibold px-4 py-2 rounded-xl transition shadow flex items-center gap-2">
+                    <i class="fa-solid fa-download"></i> Lưu dữ liệu
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 flex-grow w-full grid grid-cols-1 lg:grid-cols-3 gap-8 pb-12">
+
+        <!-- Left 2 Columns: Device Management & Tiers Settings -->
+        <div class="lg:col-span-2 space-y-8">
+
+            <!-- Device Form Card -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-plug-circle-plus text-emerald-600"></i> <span id="form-title">Thêm thiết bị điện mới</span>
+                </h2>
+                <form id="device-form" onsubmit="handleFormSubmit(event)" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <input type="hidden" id="device-id">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Tên thiết bị</label>
+                        <input type="text" id="device-name" required placeholder="VD: Điều hòa, Tủ lạnh..." class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Công suất (W)</label>
+                        <input type="number" id="device-power" required min="1" placeholder="VD: 1200" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Số lượng</label>
+                        <input type="number" id="device-quantity" required min="1" value="1" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Thời gian sử dụng (Giờ / Ngày)</label>
+                        <input type="number" id="device-hours" required min="0.1" max="24" step="0.1" placeholder="VD: 8" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm">
+                    </div>
+                    <div class="sm:col-span-2 flex items-end gap-2">
+                        <button type="submit" id="submit-btn" class="flex-grow bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-xl transition shadow text-sm">
+                            <i class="fa-solid fa-plus mr-1"></i> Thêm thiết bị
+                        </button>
+                        <button type="button" id="cancel-btn" onclick="resetForm()" class="hidden bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium py-2 px-4 rounded-xl transition text-sm">
+                            Hủy
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Device List Table -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-6 border-b border-slate-200 flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-emerald-600"></i> Danh sách thiết bị sử dụng
+                    </h2>
+                    <span id="device-count" class="bg-emerald-100 text-emerald-800 text-xs font-semibold px-3 py-1 rounded-full">0 thiết bị</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-sm">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 uppercase text-xs">
+                                <th class="py-3 px-4 font-semibold">Tên thiết bị</th>
+                                <th class="py-3 px-4 font-semibold">Công suất</th>
+                                <th class="py-3 px-4 font-semibold">SL</th>
+                                <th class="py-3 px-4 font-semibold">Số giờ/ngày</th>
+                                <th class="py-3 px-4 font-semibold">Tiêu thụ/tháng</th>
+                                <th class="py-3 px-4 font-semibold text-right">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="device-table-body" class="divide-y divide-slate-200">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pricing Settings & VAT Card -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-emerald-600"></i> Cài đặt biểu giá điện & Thuế VAT
+                    </h2>
+                    <button onclick="toggleTierSettings()" class="text-xs text-emerald-600 font-semibold hover:underline">
+                        <span id="toggle-tier-text">Hiển thị chi tiết bậc thang</span> <i class="fa-solid fa-chevron-down ml-1"></i>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Thuế VAT (%)</label>
+                        <input type="number" id="vat-rate" value="10" min="0" max="100" oninput="calculateBill()" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm">
+                    </div>
+                    <div class="flex items-center">
+                        <label class="flex items-center gap-2 cursor-pointer mt-5">
+                            <input type="checkbox" id="apply-vat" checked onchange="calculateBill()" class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500">
+                            <span class="text-sm font-medium text-slate-700">Áp dụng thuế VAT vào tổng tiền</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Tier Table Collapsible -->
+                <div id="tier-container" class="hidden mt-4 border-t border-slate-200 pt-4">
+                    <p class="text-xs text-slate-500 mb-3">Biểu giá bán lẻ điện sinh hoạt tiêu chuẩn (Cập nhật theo quy định hiện hành, có thể tùy chỉnh đơn giá VNĐ/kWh):</p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-600">
+                                    <th class="p-2">Bậc</th>
+                                    <th class="p-2">Số kWh</th>
+                                    <th class="p-2">Đơn giá (VNĐ/kWh chưa VAT)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tier-table-body" class="divide-y divide-slate-100">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Summary & Analytics Chart -->
+        <div class="space-y-8">
+
+            <!-- Summary Bill Card -->
+            <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl shadow-xl p-6 relative overflow-hidden">
+                <div class="absolute -right-10 -bottom-10 opacity-10 text-9xl">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                </div>
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2 text-emerald-400">
+                    <i class="fa-solid fa-receipt"></i> Kết quả tính toán tháng
+                </h2>
+
+                <div class="space-y-4 relative z-10">
+                    <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                        <span class="text-slate-300 text-sm">Tổng công suất thiết bị:</span>
+                        <span id="summary-total-power" class="font-semibold text-base">0 W</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                        <span class="text-slate-300 text-sm">Điện năng tiêu thụ (30 ngày):</span>
+                        <span id="summary-total-kwh" class="font-bold text-lg text-yellow-300">0 kWh</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                        <span class="text-slate-300 text-sm">Tiền điện chưa thuế:</span>
+                        <span id="summary-subtotal" class="font-medium text-base">0 đ</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                        <span class="text-slate-300 text-sm">Thuế VAT (<span id="vat-display-pct">10</span>%):</span>
+                        <span id="summary-vat-amount" class="font-medium text-base">0 đ</span>
+                    </div>
+                    <div class="flex justify-between items-center pt-1">
+                        <span class="text-emerald-300 font-semibold text-base">Tổng tiền thanh toán:</span>
+                        <span id="summary-total-money" class="font-extrabold text-2xl text-emerald-400">0 đ</span>
+                    </div>
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-slate-700/60 text-xs text-slate-400 flex items-center justify-between">
+                    <span>Tính trên cơ sở 30 ngày/tháng</span>
+                    <span id="avg-cost-per-day">Trung bình: 0 đ/ngày</span>
+                </div>
+            </div>
+
+            <!-- Chart Analysis Card -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie text-emerald-600"></i> Phân tích chi phí thiết bị
+                </h2>
+                <div class="relative w-full h-64 flex items-center justify-center">
+                    <canvas id="costChart"></canvas>
+                </div>
+                <div id="chart-empty-msg" class="hidden text-center text-slate-400 text-sm py-12">
+                    Chưa có thiết bị nào để hiển thị biểu đồ phân tích.
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500 mt-auto">
+        <p>Công cụ tính tiền điện thông minh &copy; 2026. Hỗ trợ biểu giá bậc thang và thuế VAT chuẩn xác.</p>
+    </footer>
+
+    <!-- Notification Modal / Popup wrapper -->
+    <div id="notification-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center space-y-4">
+            <div id="modal-icon" class="text-4xl text-emerald-600">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <h3 id="modal-title" class="text-lg font-bold text-slate-900">Thông báo</h3>
+            <p id="modal-message" class="text-sm text-slate-600">Nội dung thông báo...</p>
+            <button onclick="closeModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded-xl text-sm transition">Đóng</button>
+        </div>
+    </div>
+
+    <!-- Application JavaScript Logic -->
+    <script>
+        // Mặc định biểu giá điện sinh hoạt bậc thang (EVN)
+        let defaultTiers = [
+            { limit: 50, price: 1893 },
+            { limit: 50, price: 1956 },
+            { limit: 100, price: 2271 },
+            { limit: 100, price: 2860 },
+            { limit: 100, price: 3197 },
+            { limit: Infinity, price: 3302 }
+        ];
+
+        // Dữ liệu thiết bị mẫu ban đầu
+        let defaultDevices = [
+            { id: '1', name: 'Điều hòa nhiệt độ (Inverter 1HP)', power: 900, quantity: 1, hours: 8 },
+            { id: '2', name: 'Tủ lạnh (Inverter 300L)', power: 120, quantity: 1, hours: 24 },
+            { id: '3', name: 'Máy giặt cửa trước', power: 2000, quantity: 1, hours: 0.5 },
+            { id: '4', name: 'Đèn chiếu sáng LED', power: 40, quantity: 6, hours: 5 },
+            { id: '5', name: 'Tivi LED 55 inch', power: 150, quantity: 1, hours: 4 },
+            { id: '6', name: 'Nồi cơm điện', power: 700, quantity: 1, hours: 1 }
+        ];
+
+        let devices = [];
+        let costChartInstance = null;
+
+        // Khởi tạo dữ liệu từ LocalStorage hoặc dữ liệu mẫu
+        function initApp() {
+            const savedDevices = localStorage.getItem('electricity_devices');
+            if (savedDevices) {
+                try {
+                    devices = JSON.parse(savedDevices);
+                } catch(e) {
+                    devices = defaultDevices;
+                }
+            } else {
+                devices = defaultDevices;
+            }
+            renderTierTable();
+            renderDevices();
+            calculateBill();
+        }
+
+        // Render bảng bậc thang
+        function renderTierTable() {
+            const tbody = document.getElementById('tier-table-body');
+            tbody.innerHTML = '';
+            defaultTiers.forEach((tier, index) => {
+                let limitText = tier.limit === Infinity ? `Trên ${getPreviousLimitsSum(index)} kWh` : `Từ ${getPreviousLimitsSum(index) + 1} đến ${getPreviousLimitsSum(index) + tier.limit} kWh`;
+                if (index === 0) limitText = `Từ 0 đến ${tier.limit} kWh`;
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-2 font-medium text-slate-700">Bậc ${index + 1}</td>
+                        <td class="p-2 text-slate-600">${limitText}</td>
+                        <td class="p-2 font-semibold text-slate-800">${tier.price.toLocaleString('vi-VN')} đ</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function getPreviousLimitsSum(currentIndex) {
+            let sum = 0;
+            for (let i = 0; i < currentIndex; i++) {
+                if (defaultTiers[i].limit !== Infinity) {
+                    sum += defaultTiers[i].limit;
+                }
+            }
+            return sum;
+        }
+
+        // Toggle Tier Details
+        function toggleTierSettings() {
+            const container = document.getElementById('tier-container');
+            const toggleText = document.getElementById('toggle-tier-text');
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                toggleText.innerText = 'Ẩn chi tiết bậc thang';
+            } else {
+                container.classList.add('hidden');
+                toggleText.innerText = 'Hiển thị chi tiết bậc thang';
+            }
+        }
+
+        // Render danh sách thiết bị ra bảng
+        function renderDevices() {
+            const tbody = document.getElementById('device-table-body');
+            const countBadge = document.getElementById('device-count');
+            tbody.innerHTML = '';
+            countBadge.innerText = `${devices.length} thiết bị`;
+
+            if (devices.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-8 text-slate-400 italic">Chưa có thiết bị nào. Hãy thêm thiết bị ở phía trên.</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            devices.forEach(device => {
+                // kWh / tháng = (W * số lượng * số giờ/ngày * 30 ngày) / 1000
+                const kwhMonthly = (device.power * device.quantity * device.hours * 30) / 1000;
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="py-3 px-4 font-medium text-slate-800">${escapeHtml(device.name)}</td>
+                        <td class="py-3 px-4 text-slate-600">${device.power.toLocaleString()} W</td>
+                        <td class="py-3 px-4 text-slate-600">${device.quantity}</td>
+                        <td class="py-3 px-4 text-slate-600">${device.hours} h</td>
+                        <td class="py-3 px-4 font-semibold text-emerald-600">${kwhMonthly.toFixed(2)} kWh</td>
+                        <td class="py-3 px-4 text-right space-x-2">
+                            <button onclick="editDevice('${device.id}')" class="text-blue-600 hover:text-blue-800 p-1 transition" title="Sửa">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button onclick="deleteDevice('${device.id}')" class="text-red-600 hover:text-red-800 p-1 transition" title="Xóa">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Thêm hoặc Cập nhật thiết bị
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('device-id').value;
+            const name = document.getElementById('device-name').value.trim();
+            const power = parseFloat(document.getElementById('device-power').value);
+            const quantity = parseInt(document.getElementById('device-quantity').value);
+            const hours = parseFloat(document.getElementById('device-hours').value);
+
+            if (!name || isNaN(power) || isNaN(quantity) || isNaN(hours)) return;
+
+            if (id) {
+                // Sửa
+                const index = devices.findIndex(d => d.id === id);
+                if (index !== -1) {
+                    devices[index] = { id, name, power, quantity, hours };
+                }
+                showCustomModal("Thành công", "Đã cập nhật thông tin thiết bị điện!", "success");
+            } else {
+                // Thêm mới
+                const newDevice = {
+                    id: Date.now().toString(),
+                    name,
+                    power,
+                    quantity,
+                    hours
+                };
+                devices.push(newDevice);
+                showCustomModal("Thành công", "Đã thêm thiết bị mới vào danh sách!", "success");
+            }
+
+            saveAndRefresh();
+            resetForm();
+        }
+
+        // Điền dữ liệu vào form để sửa
+        function editDevice(id) {
+            const device = devices.find(d => d.id === id);
+            if (!device) return;
+
+            document.getElementById('device-id').value = device.id;
+            document.getElementById('device-name').value = device.name;
+            document.getElementById('device-power').value = device.power;
+            document.getElementById('device-quantity').value = device.quantity;
+            document.getElementById('device-hours').value = device.hours;
+
+            document.getElementById('form-title').innerText = 'Chỉnh sửa thiết bị điện';
+            document.getElementById('submit-btn').innerHTML = '<i class="fa-solid fa-floppy-disk mr-1"></i> Lưu thay đổi';
+            document.getElementById('cancel-btn').classList.remove('hidden');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Xóa thiết bị
+        function deleteDevice(id) {
+            devices = devices.filter(d => d.id !== id);
+            saveAndRefresh();
+            showCustomModal("Đã xóa", "Thiết bị đã được xóa khỏi danh sách.", "info");
+        }
+
+        // Reset form
+        function resetForm() {
+            document.getElementById('device-form').reset();
+            document.getElementById('device-id').value = '';
+            document.getElementById('form-title').innerText = 'Thêm thiết bị điện mới';
+            document.getElementById('submit-btn').innerHTML = '<i class="fa-solid fa-plus mr-1"></i> Thêm thiết bị';
+            document.getElementById('cancel-btn').classList.add('hidden');
+        }
+
+        // Lưu LocalStorage và cập nhật giao diện
+        function saveAndRefresh() {
+            localStorage.setItem('electricity_devices', JSON.stringify(devices));
+            renderDevices();
+            calculateBill();
+        }
+
+        // Tính toán tổng tiền điện theo bậc thang và VAT
+        function calculateBill() {
+            let totalPowerW = 0;
+            let totalKWh = 0;
+
+            // Mảng lưu chi tiết số kWh và tiền từng thiết bị để làm biểu đồ
+            let deviceCosts = devices.map(device => {
+                const kwhMonthly = (device.power * device.quantity * device.hours * 30) / 1000;
+                totalPowerW += (device.power * device.quantity);
+                totalKWh += kwhMonthly;
+                return {
+                    name: device.name,
+                    kwh: kwhMonthly,
+                    cost: 0
+                };
+            });
+
+            // Tính tiền điện theo bậc thang cho tổng số kWh
+            let remainingKWh = totalKWh;
+            let subtotalMoney = 0;
+
+            for (let i = 0; i < defaultTiers.length; i++) {
+                if (remainingKWh <= 0) break;
+                let tier = defaultTiers[i];
+                let consumeInTier = tier.limit === Infinity ? remainingKWh : Math.min(remainingKWh, tier.limit);
+                subtotalMoney += consumeInTier * tier.price;
+                remainingKWh -= consumeInTier;
+            }
+
+            // Phân bổ chi phí theo tỷ lệ kWh cho từng thiết bị
+            if (totalKWh > 0) {
+                deviceCosts.forEach(item => {
+                    item.cost = (item.kwh / totalKWh) * subtotalMoney;
+                });
+            }
+
+            // Tính thuế VAT
+            const vatRate = parseFloat(document.getElementById('vat-rate').value) || 0;
+            const applyVat = document.getElementById('apply-vat').checked;
+            document.getElementById('vat-display-pct').innerText = vatRate;
+
+            let vatAmount = applyVat ? (subtotalMoney * vatRate) / 100 : 0;
+            let totalMoney = subtotalMoney + vatAmount;
+            let avgPerDay = totalMoney / 30;
+
+            // Cập nhật giao diện kết quả
+            document.getElementById('summary-total-power').innerText = `${totalPowerW.toLocaleString()} W`;
+            document.getElementById('summary-total-kwh').innerText = `${totalKWh.toFixed(2)} kWh`;
+            document.getElementById('summary-subtotal').innerText = `${Math.round(subtotalMoney).toLocaleString('vi-VN')} đ`;
+            document.getElementById('summary-vat-amount').innerText = `${Math.round(vatAmount).toLocaleString('vi-VN')} đ`;
+            document.getElementById('summary-total-money').innerText = `${Math.round(totalMoney).toLocaleString('vi-VN')} đ`;
+            document.getElementById('avg-cost-per-day').innerText = `Trung bình: ${Math.round(avgPerDay).toLocaleString('vi-VN')} đ/ngày`;
+
+            // Cập nhật biểu đồ
+            updateChart(deviceCosts);
+        }
+
+        // Vẽ biểu đồ phân tích chi phí thiết bị bằng Chart.js
+        function updateChart(deviceCosts) {
+            const ctx = document.getElementById('costChart').getContext('2d');
+            const emptyMsg = document.getElementById('chart-empty-msg');
+            const canvasEl = document.getElementById('costChart');
+
+            if (deviceCosts.length === 0) {
+                canvasEl.classList.add('hidden');
+                emptyMsg.classList.remove('hidden');
+                if (costChartInstance) costChartInstance.destroy();
+                return;
+            } else {
+                canvasEl.classList.remove('hidden');
+                emptyMsg.classList.add('hidden');
+            }
+
+            // Sắp xếp lấy top các thiết bị tốn tiền nhất, nhóm các thiết bị nhỏ còn lại vào "Khác" nếu quá nhiều
+            let sorted = [...deviceCosts].sort((a, b) => b.cost - a.cost);
+            let labels = sorted.map(d => d.name);
+            let dataValues = sorted.map(d => Math.round(d.cost));
+
+            const backgroundColors = [
+                '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', 
+                '#ec4899', '#f43f5e', '#f97316', '#eab308', '#84cc16'
+            ];
+
+            if (costChartInstance) {
+                costChartInstance.destroy();
+            }
+
+            costChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: dataValues,
+                        backgroundColor: backgroundColors.slice(0, labels.length),
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                font: {
+                                    size: 11,
+                                    family: 'Inter'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    let value = context.raw || 0;
+                                    return ` ${label}: ${value.toLocaleString('vi-VN')} đ`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '60%'
+                }
+            });
+        }
+
+        // Đặt lại mặc định toàn bộ
+        function resetData() {
+            if (confirm("Bạn có chắc chắn muốn đặt lại danh sách thiết bị về mặc định không?")) {
+                devices = JSON.parse(JSON.stringify(defaultDevices));
+                document.getElementById('vat-rate').value = 10;
+                document.getElementById('apply-vat').checked = true;
+                saveAndRefresh();
+                showCustomModal("Đã đặt lại", "Đã khôi phục dữ liệu thiết bị mặc định thành công.", "success");
+            }
+        }
+
+        // Lưu / Xuất dữ liệu tải về JSON
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(devices, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "quan_ly_tien_dien.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showCustomModal("Thành công", "Đã xuất dữ liệu thiết bị ra file JSON thành công!", "success");
+        }
+
+        // Hiển thị Modal thông báo tùy chỉnh thay vì alert()
+        function showCustomModal(title, message, type = "success") {
+            const modal = document.getElementById('notification-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalMsg = document.getElementById('modal-message');
+            const modalIcon = document.getElementById('modal-icon');
+
+            modalTitle.innerText = title;
+            modalMsg.innerText = message;
+
+            if (type === "success") {
+                modalIcon.className = "text-4xl text-emerald-600";
+                modalIcon.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+            } else {
+                modalIcon.className = "text-4xl text-sky-600";
+                modalIcon.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('notification-modal');
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+
+        // Tiện ích chống XSS cơ bản
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        // Khởi chạy ứng dụng khi tải trang xong
+        window.onload = function() {
+            initApp();
+        };
+    </script>
+</body>
+</html>
